@@ -12,10 +12,15 @@ module.exports = grammar({
     ],
 
     rules: {
-        source_file: $ => repeat(choice(
-            $._declaration,
-            prec(-1, $._statement),
-        )),
+        source_file: $ => seq(
+            optional($.shebang),
+            repeat(choice(
+                $._declaration,
+                prec(-1, $._statement),
+            ))
+        ),
+
+        shebang: $ => seq('#!', /.*/),
 
         cmd_identifier: $ => token(/[_\p{XID_Start}][_\-\p{XID_Continue}]*/),
 
