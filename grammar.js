@@ -1,5 +1,3 @@
-// TODO: 
-// - unquoted string might need an external lexer?
 module.exports = grammar({
     name: "nu",
 
@@ -7,11 +5,10 @@ module.exports = grammar({
 
     extras: $ => [/\s/, $.comment],
 
-    externals: $ => [
-        $._int_literal,
-        $._float_literal,
-        $._unquoted_str,
-    ],
+    // externals: $ => [
+    //     $._int_literal,
+    //     $._float_literal,
+    // ],
 
     conflicts: $ => [
         [$.val_record, $.val_closure]
@@ -24,6 +21,10 @@ module.exports = grammar({
             optional($.shebang),
             repeat(choice(
                 $._declaration,
+                // NOTE:
+                // in a script, this is not a legal top level item, this is
+                // only here to cover `config.nu` and `env.nu` which are what
+                // this parser will mostly be used for i think
                 prec(-1, $._statement),
             ))
         ),
@@ -31,6 +32,9 @@ module.exports = grammar({
         shebang: $ => seq('#!', /.*/),
 
         /// Identifiers
+        // NOTE:
+        // for simplicity, i used the `rust` definition of an identifier
+        // but in `nu` the rule is way more relaxed than this
 
         cmd_identifier: $ => token(/[_\p{XID_Start}][_\-\p{XID_Continue}]*/),
 
@@ -65,7 +69,7 @@ module.exports = grammar({
             optional(MODIFIER().visibility),
             KEYWORD().alias,
             field("name", $._command_name),
-            PUNCTUATION().equal,
+            PUNC().equal,
             field("value", $.pipeline),
         ),
 
@@ -102,21 +106,21 @@ module.exports = grammar({
         /// Parameters
 
         parameter_parens: $ => seq(
-            PUNCTUATION().open_paren,
+            DELIM().open_paren,
             repeat($.parameter),
-            PUNCTUATION().close_paren,
+            DELIM().close_paren,
         ),
 
         parameter_bracks: $ => seq(
-            PUNCTUATION().open_brack,
+            DELIM().open_brack,
             repeat($.parameter),
-            PUNCTUATION().close_brack,
+            DELIM().close_brack,
         ),
 
         parameter_pipes: $ => seq(
-            PUNCTUATION().pipe,
+            PUNC().pipe,
             repeat($.parameter),
-            PUNCTUATION().pipe,
+            PUNC().pipe,
         ),
 
         parameter: $ => seq(
@@ -127,7 +131,7 @@ module.exports = grammar({
                 seq($.param_value, $.param_type),
                 seq($.param_type, $.param_value),
             )),
-            optional(PUNCTUATION().comma),
+            optional(PUNC().comma),
         ),
 
         _param_name: $ => choice(
@@ -139,7 +143,7 @@ module.exports = grammar({
         ),
 
         param_type: $ => seq(
-            PUNCTUATION().colon,
+            PUNC().colon,
             field("param_type", choice(
                 $.list_type,
                 FLAT_TYPES(),
@@ -148,32 +152,32 @@ module.exports = grammar({
         ),
 
         param_value: $ => seq(
-            PUNCTUATION().equal,
+            PUNC().equal,
             field("param_value", $._expression),
         ),
 
         list_type: $ => prec(1, seq(
             "list",
             optional(seq(
-                token.immediate(PUNCTUATION().open_angle),
+                token.immediate(DELIM().open_angle),
                 field("inner", token(FLAT_TYPES())),
-                PUNCTUATION().close_angle
+                DELIM().close_angle
             )),
         )),
 
         param_cmd: $ => seq(
-            PUNCTUATION().at,
+            PUNC().at,
             $._command_name,
         ),
 
         param_rest: $ => seq(
-            PUNCTUATION().rest,
+            PUNC().rest,
             $._var_name,
         ),
 
         param_opt: $ => seq(
             $.identifier,
-            token.immediate(PUNCTUATION().question),
+            token.immediate(PUNC().question),
         ),
 
         _param_long_flag: $ => seq(
@@ -185,9 +189,9 @@ module.exports = grammar({
         ),
 
         flag_capsule: $ => seq(
-            PUNCTUATION().open_paren,
+            DELIM().open_paren,
             $.param_short_flag,
-            PUNCTUATION().close_paren,
+            DELIM().close_paren,
         ),
 
         param_short_flag: $ => seq(
@@ -210,31 +214,40 @@ module.exports = grammar({
                 $.assignment,
                 $.pipeline
             ),
-            optional(PUNCTUATION().semicolon),
+            optional(PUNC().semicolon),
         ),
 
-        /// Control Statements
+        /// Controls
 
         _control: $ => choice(
-            $._ctrl_standalone,
-            $._ctrl_nestable,
+            $._ctrl_statement,
+            $._ctrl_expression,
         ),
 
-        _ctrl_standalone: $ => choice(
+        // control statements cannot be used in pipeline because they
+        // do not return values
+        _ctrl_statement: $ => choice(
             $.ctrl_for,
             $.ctrl_loop,
             $.ctrl_while,
             $.ctrl_error,
         ),
 
-        _ctrl_nestable: $ => choice(
+        // control expressions *return values and can be used in pipelines
+        // 
+        // * `break` and `continue` do not return values (yet?) but can be
+        // used in pipelines
+        _ctrl_expression: $ => choice(
             field("ctrl_break", KEYWORD().break),
             field("ctrl_continue", KEYWORD().continue),
             $.ctrl_do,
             $.ctrl_if,
             $.ctrl_try,
+            $.ctrl_match,
             $.ctrl_return,
         ),
+
+        // Standalone Controls
 
         ctrl_for: $ => seq(
             KEYWORD().for,
@@ -261,6 +274,8 @@ module.exports = grammar({
             field("body", $.block),
         ),
 
+        // Nestable Controls
+
         ctrl_do: $ => prec.left(-1, seq(
             KEYWORD().do,
             $.val_closure,
@@ -278,6 +293,29 @@ module.exports = grammar({
                     field("else_branch", $.ctrl_if),
                 ),
             ))
+        ),
+
+        ctrl_match: $ => seq(
+            KEYWORD().match,
+            field("scrutinee", $._expression),
+            DELIM().open_brace,
+            repeat($.match_arm),
+            optional($.default_arm),
+            DELIM().close_brace,
+        ),
+
+        match_arm: $ => seq(
+            field("pattern", $._expression),
+            PUNC().fat_arrow,
+            field("expression", $._expression),
+            optional(PUNC().comma),
+        ),
+
+        default_arm: $ => seq(
+            field("default_pattern", PUNC().underscore),
+            PUNC().fat_arrow,
+            field("expression", $._expression),
+            optional(PUNC().comma),
         ),
 
         ctrl_try: $ => seq(
@@ -313,7 +351,7 @@ module.exports = grammar({
 
         _assignment_pattern: $ => seq(
             field("name", $._variable_name),
-            PUNCTUATION().equal,
+            PUNC().equal,
             field("value", $.pipeline),
         ),
 
@@ -389,9 +427,9 @@ module.exports = grammar({
         wild_card: $ => token("*"),
 
         command_list: $ => seq(
-            PUNCTUATION().open_brack,
+            DELIM().open_brack,
             repeat(field("command", $._command_name)),
-            PUNCTUATION().close_brack,
+            DELIM().close_brack,
         ),
 
         /// Assignment Statement
@@ -416,12 +454,12 @@ module.exports = grammar({
         /// Block
 
         block: $ => seq(
-            PUNCTUATION().open_brace,
+            DELIM().open_brace,
             repeat(choice(
                 $._declaration,
                 $._statement,
             )),
-            PUNCTUATION().close_brace,
+            DELIM().close_brace,
         ),
 
         /// Pipeline
@@ -429,14 +467,14 @@ module.exports = grammar({
         pipeline: $ => prec(-69, seq(
             $.pipe_element,
             repeat(seq(
-                PUNCTUATION().pipe,
+                PUNC().pipe,
                 $.pipe_element
             )),
         )),
 
         pipe_element: $ => prec(-1, choice(
             $._expression,
-            $._ctrl_nestable,
+            $._ctrl_expression,
             $.where_command,
             $.command,
         )),
@@ -477,9 +515,9 @@ module.exports = grammar({
                     OPR().minus,
                     alias(
                         seq(
-                            token.immediate(PUNCTUATION().open_paren),
+                            token.immediate(DELIM().open_paren),
                             $.pipeline,
-                            PUNCTUATION().close_paren
+                            DELIM().close_paren
                         ),
                         $.expr_parenthesized
                     )
@@ -496,9 +534,9 @@ module.exports = grammar({
         ),
 
         expr_parenthesized: $ => seq(
-            PUNCTUATION().open_paren,
+            DELIM().open_paren,
             optional($.pipeline),
-            PUNCTUATION().close_paren,
+            DELIM().close_paren,
         ),
 
         val_range: $ => {
@@ -510,14 +548,13 @@ module.exports = grammar({
 
             const member = choice(
                 $.expr_parenthesized,
-                $.val_int,
-                $.val_float,
+                $.val_number,
             );
 
             const lo = field("lo", member);
             const hi = field("hi", member);
 
-            return prec.left(PREC().range, choice(
+            return prec.right(PREC().range, choice(
                 seq(lo, opr, hi),
                 seq(lo, opr),
                 seq(opr, hi),
@@ -530,8 +567,7 @@ module.exports = grammar({
             $.val_variable,
             $.val_nothing,
             $.val_bool,
-            $.val_float,
-            $.val_int,
+            $.val_number,
             $.val_duration,
             $.val_filesize,
             $.val_binary,
@@ -555,40 +591,32 @@ module.exports = grammar({
 
         val_bool: $ => token(choice(SPECIAL().true, SPECIAL().false)),
 
-        val_float: $ => choice(
-            SPECIAL().pos_infinity,
-            SPECIAL().neg_infinity,
-            SPECIAL().not_a_number,
-            seq(
-                optional(choice(OPR().minus, OPR().plus)),
-                $._float_literal
-            ),
-        ),
-
-        val_int: $ => choice(
+        // separating floats from integers does not end well
+        // especially when it comes to incorporation with ranges.
+        val_number: $ => choice(
+            /[+-]?([0-9]*[.])?[0-9]+([eE][-+]?\d+)?/,
             /0x[0-9a-fA-F_]+/,
             /0b[01_]+/,
             /0o[0-7_]+/,
-            seq(
-                optional(choice(OPR().minus, OPR().plus)),
-                $._int_literal
-            ),
+            SPECIAL().pos_infinity,
+            SPECIAL().neg_infinity,
+            SPECIAL().not_a_number,
         ),
 
         val_duration: $ => seq(
-            field("value", choice($.val_int, $.val_float)),
+            field("value", $.val_number),
             field("unit", DURATION_UNIT()),
         ),
 
         val_filesize: $ => seq(
-            field("value", choice($.val_int, $.val_float)),
+            field("value", $.val_number),
             field("unit", FILESIZE_UNIT()),
         ),
 
         val_binary: $ => seq(
             choice("0b[", "0o[", "0x["),
-            repeat(seq($.hex_digit, optional(PUNCTUATION().comma))),
-            PUNCTUATION().close_brack,
+            repeat(seq($.hex_digit, optional(PUNC().comma))),
+            DELIM().close_brack,
         ),
 
         val_date: $ => token(
@@ -675,55 +703,57 @@ module.exports = grammar({
         ),
 
         expr_interpolated: $ => seq(
-            PUNCTUATION().open_paren,
+            DELIM().open_paren,
             repeat($._statement),
-            PUNCTUATION().close_paren,
+            DELIM().close_paren,
         ),
 
         /// Collections
 
         val_list: $ => seq(
-            PUNCTUATION().open_brack,
+            DELIM().open_brack,
             repeat(field(
                 "item",
                 seq(
                     choice($._expression, alias($.identifier, $.val_string)),
-                    optional(PUNCTUATION().comma)
+                    optional(PUNC().comma)
                 ),
             )),
-            PUNCTUATION().close_brack,
+            DELIM().close_brack,
             optional($.cell_path),
         ),
 
         val_record: $ => seq(
-            PUNCTUATION().open_brace,
+            DELIM().open_brace,
             repeat(field("entry", $.record_entry)),
-            PUNCTUATION().close_brace,
+            DELIM().close_brace,
             optional($.cell_path),
         ),
 
         record_entry: $ => seq(
             field("key", choice($.identifier, $.val_string)),
-            PUNCTUATION().colon,
+            PUNC().colon,
             field("value", $._expression),
-            optional(PUNCTUATION().comma),
+            optional(PUNC().comma),
         ),
 
         val_table: $ => seq(
-            PUNCTUATION().open_brack,
-            field("head", seq($.val_list, PUNCTUATION().semicolon)),
+            DELIM().open_brack,
+            field("head", seq($.val_list, PUNC().semicolon)),
             repeat(field("row", $.val_list)),
-            PUNCTUATION().close_brack,
+            DELIM().close_brack,
             optional($.cell_path),
         ),
 
+        // parsing of blocks and closures is combined here
+        // because otherwise this would conflict with records
         val_closure: $ => seq(
-            PUNCTUATION().open_brace,
+            DELIM().open_brace,
             field("parameters", optional($.parameter_pipes)),
             repeat(choice(
                 $._statement
             )),
-            PUNCTUATION().close_brace,
+            DELIM().close_brace,
         ),
 
         /// CellPaths
@@ -734,71 +764,69 @@ module.exports = grammar({
         ),
 
         path: $ => {
-            // const quoted = choice(
-            //     token($._str_double_quotes),
-            //     token($._str_single_quotes),
-            //     token($._str_back_ticks),
-            // );
+            const quoted = choice(
+                $._str_double_quotes,
+                $._str_single_quotes,
+                $._str_back_ticks,
+            );
 
-            const path = token.immediate(choice(
+            const path = choice(
                 /[+-]?[0-9][0-9_]*/i,
-                /[_\p{XID_Start}][_\p{XID_Continue}]*/i,
-                // quoted,
-            ));
+                token(/[^\s\n\t\r{}()\[\]"`'\?]+/),
+                quoted,
+            );
 
             return seq(
-                PUNCTUATION().dot,
+                PUNC().dot,
                 choice(
                     field("raw_path", path),
-                    field("protected_path", seq(path, PUNCTUATION().question)),
+                    field("protected_path", seq(path, PUNC().question)),
                 ),
             )
         },
 
         /// Commands
 
-        command: $ => prec.right(10, choice(
+        command: $ => prec.left(10, choice(
             $.cmd_head,
             $.cmd_head_sub,
             $.cmd_prefix_head_sub,
         )),
 
         cmd_head_sub: $ => prec.right(3, seq(
-            field("head", $.cmd_identifier),
+            field("head", seq(optional(PUNC().caret), $.cmd_identifier)),
             field("sub", $.cmd_identifier),
             prec.right(10, repeat($._cmd_arg)),
         )),
 
         cmd_prefix_head_sub: $ => prec.right(2, seq(
             field("prefix", $.cmd_identifier),
-            field("head", $.cmd_identifier),
+            field("head", seq(optional(PUNC().caret), $.cmd_identifier)),
             field("sub", $.cmd_identifier),
             prec.right(10, repeat($._cmd_arg)),
         )),
 
         cmd_head: $ => prec.right(1, seq(
-            field("head", $.cmd_identifier),
+            field("head", seq(optional(PUNC().caret), $.cmd_identifier)),
             prec.right(10, repeat($._cmd_arg)),
         )),
 
         _cmd_arg: $ => choice(
-            field("arg", prec(1, $._value)),
-            // field("arg_str", alias($._unquoted_str, $.val_string)),
+            field("arg", prec.right(10, $._value)),
+            // lowest precedence to make it a last resort
             field("arg_str", alias($.unquoted, $.val_string)),
             field("arg", $.expr_parenthesized),
             field("flag", $._flag),
             field("redir", $.redirection),
         ),
 
-        unquoted: $ => token(/[^\s\n\t\r{}()\[\]"`']+/),
-
         redirection: $ => choice(
             prec.right(10, seq(
                 choice(...REDIR()),
-                choice(
-                    alias($._unquoted_str, $.val_string),
+                field("file_path", choice(
+                    alias($.unquoted, $.val_string),
                     $._expression,
-                )
+                )),
             )),
             ...REDIR(),
         ),
@@ -826,7 +854,7 @@ module.exports = grammar({
         ),
 
         flag_value: $ => seq(
-            PUNCTUATION().equal,
+            PUNC().equal,
             field("value", choice(
                 $.val_string,
                 $.cmd_identifier,
@@ -834,15 +862,22 @@ module.exports = grammar({
             )),
         ),
 
+        // because this catches almost anything, we want to ensure it is
+        // picked as the a last resort after everything else has failed. 
+        // so we give it a ridiculous precedence and place it at the
+        // very end
+        unquoted: $ => prec.left(-69, token(/[^\s\n\t\r{}()\[\]"`']+/)),
+
         /// Comments
 
         comment: $ => seq(
-            PUNCTUATION().hash,
+            PUNC().hash,
             /.*/,
         )
     },
 });
 
+// nushell keywords
 function KEYWORD() {
     return {
         def: "def",
@@ -889,6 +924,7 @@ function KEYWORD() {
     }
 }
 
+// modifier keywords
 function MODIFIER() {
     return {
         overlay_hide: "hide",
@@ -902,6 +938,7 @@ function MODIFIER() {
     }
 }
 
+// redirection
 function REDIR() {
     return [
         "err>", "out>",
@@ -911,7 +948,8 @@ function REDIR() {
     ]
 }
 
-function PUNCTUATION() {
+// punctuation
+function PUNC() {
     return {
         at: "@",
         dot: ".",
@@ -921,23 +959,37 @@ function PUNCTUATION() {
         equal: "=",
         colon: ":",
         comma: ",",
+        caret: "^",
         dollar: "$",
         fat_arrow: "=>",
         question: "?",
-        open_angle: "<",
-        open_brack: "[",
-        open_brace: "{",
-        open_paren: "(",
-        close_angle: ">",
-        close_brack: "]",
-        close_brace: "}",
-        close_paren: ")",
+        underscore: "_",
+
         semicolon: ";",
     }
 }
 
+// delimiters
+function DELIM() {
+    return {
+        open_angle: "<",
+        close_angle: ">",
+
+        open_brack: "[",
+        close_brack: "]",
+
+        open_brace: "{",
+        close_brace: "}",
+
+        open_paren: "(",
+        close_paren: ")",
+    }
+}
+
+// operators
 function OPR() {
     return {
+        // arithmetic
         plus: "+",
         minus: "-",
         times: "*",
@@ -947,31 +999,38 @@ function OPR() {
         power: "**",
         append: "++",
 
+        // comparison
         equal: "==",
         not_equal: "!=",
         less_than: "<",
         less_than_equal: "<=",
         greater_than: ">",
         greater_than_equal: ">=",
+
+        // regex matching
         regex_match: "=~",
         regex_not_match: "!~",
 
-        in: "in",
-        not_in: "not-in",
+        // logical
         not: "not",
         and: "and",
         or: "or",
         xor: "xor",
 
+        // bitwise
         bit_or: "bit-or",
         bit_xor: "bit-xor",
         bit_and: "bit-and",
         bit_shl: "bit-shl",
         bit_shr: "bit-shr",
 
+        // membership tests
+        in: "in",
+        not_in: "not-in",
         starts_with: "starts-with",
         ends_with: "ends-with",
 
+        // assignment
         assign: "=",
         assign_add: "+=",
         assign_sub: "-=",
@@ -979,12 +1038,15 @@ function OPR() {
         assign_div: "/=",
         assign_append: "++=",
 
+        // range
         range_inclusive: "..",
         range_inclusive2: "..=",
         range_exclusive: "..<",
     }
 }
 
+/// operator precedence 
+/// taken from `nu_protocol::`
 function PREC() {
     return {
         range: 15,
@@ -1005,6 +1067,7 @@ function PREC() {
     }
 }
 
+/// map of operators and their precedence
 function TABLE() {
     const multiplicatives = choice(
         OPR().times,
@@ -1029,6 +1092,7 @@ function TABLE() {
         OPR().ends_with,
     );
 
+    // `range` is not included here and is handled separately
     return [
         [PREC().power, OPR().power],
         [PREC().multiplicative, multiplicatives],
@@ -1046,6 +1110,7 @@ function TABLE() {
     ]
 }
 
+/// special tokens
 function SPECIAL() {
     return {
         true: "true",
@@ -1058,6 +1123,9 @@ function SPECIAL() {
     }
 }
 
+/// nushell flat types 
+/// taken from `nu_parser::parser::parse_shape_name()`
+// i.e not composite types like list<int> or record<name: string>
 function FLAT_TYPES() {
     const types = [
         "any", "binary", "block", "bool", "cell-path", "closure", "cond",
@@ -1071,10 +1139,14 @@ function FLAT_TYPES() {
     return field("flat_type", choice(...types))
 }
 
+/// duration units, are case sensitive
+/// taken from `nu_parser::parse_duration_bytes()`
 function DURATION_UNIT() {
     return choice(...["ns", "µs", "us", "ms", "sec", "min", "hr", "day", "wk"])
 };
 
+/// filesize units, are case insensitive
+/// taken from `nu_parser::parse_filesize_bytes()`
 function FILESIZE_UNIT() {
     return choice(...[
         "b", "B",
@@ -1108,6 +1180,8 @@ function NON_IDENT_CHARS() {
     ]
 }
 
+
+// stolen from tree-sitter-bash
 function noneOf(...chars) {
     const negatedString = chars.map(c => c === '\\' ? '\\\\' : c).join('');
     return new RegExp('[^' + negatedString + ']');
