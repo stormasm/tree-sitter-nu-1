@@ -1,6 +1,6 @@
 # tree-sitter nu
 
-[nushell](https://github.com/nushell/nushell) grammar for [tree-sitter](https://tree-sitter.github.io/tree-sitter/)
+[**WIP**] [nushell](https://github.com/nushell/nushell) grammar for [tree-sitter](https://tree-sitter.github.io/tree-sitter/)
 
 # issues
 1. unquoted strings
