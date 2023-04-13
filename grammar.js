@@ -269,7 +269,7 @@ module.exports = grammar({
 
         ctrl_do: $ => prec.left(-1, seq(
             KEYWORD().do,
-            $.val_closure,
+            $._blosure,
             optional($._expression),
         )),
 
@@ -314,7 +314,7 @@ module.exports = grammar({
             field("try_branch", $.block),
             optional(seq(
                 KEYWORD().catch,
-                field("catch_branch", $.val_closure),
+                field("catch_branch", $._blosure),
             )),
         ),
 
@@ -451,6 +451,11 @@ module.exports = grammar({
                 $._statement,
             )),
             DELIM().close_brace,
+        ),
+
+        _blosure: $ => choice(
+            $.block,
+            $.val_closure,
         ),
 
         /// Pipeline
