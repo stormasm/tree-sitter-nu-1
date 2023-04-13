@@ -1,2 +1,1 @@
-# str contains 'a' o> file.txt
-mv file1 file3
+let x = ls | each {|| $in + 4 } | where 5? == 8.. 

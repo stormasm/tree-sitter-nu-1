@@ -3762,7 +3762,7 @@
       },
       "parameters": {
         "multiple": false,
-        "required": false,
+        "required": true,
         "types": [
           {
             "type": "parameter_pipes",
@@ -4526,9 +4526,21 @@
     "named": true,
     "fields": {
       "lhs": {
-        "multiple": false,
+        "multiple": true,
         "required": true,
         "types": [
+          {
+            "type": "?",
+            "named": false
+          },
+          {
+            "type": "cell_path",
+            "named": true
+          },
+          {
+            "type": "val_number",
+            "named": true
+          },
           {
             "type": "val_string",
             "named": true

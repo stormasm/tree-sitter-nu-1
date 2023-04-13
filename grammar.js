@@ -5,10 +5,6 @@ module.exports = grammar({
 
     extras: $ => [/\s/, $.comment],
 
-    conflicts: $ => [
-        [$.val_record, $.val_closure]
-    ],
-
     rules: {
         /// File
 
@@ -481,7 +477,17 @@ module.exports = grammar({
             field(
                 "predicate",
                 choice(...TABLE().map(([precedence, opr]) => prec.left(precedence, seq(
-                    field("lhs", alias($.identifier, $.val_string)),
+                    field("lhs", choice(
+                        seq(
+                            choice(
+                                alias($.identifier, $.val_string),
+                                $.val_number,
+                            ),
+                            optional(PUNC().question),
+                            optional($.cell_path),
+                        )),
+                        $.val_variable
+                    ),
                     field("opr", opr),
                     field("rhs", choice($._expression, alias($.identifier, $.val_string)))
                 )))),
@@ -746,11 +752,9 @@ module.exports = grammar({
             optional($.cell_path),
         ),
 
-        // parsing of blocks and closures is combined here
-        // because otherwise this would conflict with records
         val_closure: $ => seq(
             DELIM().open_brace,
-            field("parameters", optional($.parameter_pipes)),
+            field("parameters", $.parameter_pipes),
             repeat(choice(
                 $._statement
             )),
@@ -759,10 +763,10 @@ module.exports = grammar({
 
         /// CellPaths
 
-        cell_path: $ => seq(
+        cell_path: $ => prec.right(1, seq(
             $.path,
             repeat($.path),
-        ),
+        )),
 
         path: $ => {
             const quoted = choice(
@@ -772,8 +776,7 @@ module.exports = grammar({
             );
 
             const path = choice(
-                /[+-]?[0-9][0-9_]*/i,
-                token(/[^\s\n\t\r{}()\[\]"`'\?]+/),
+                token(/[^\s\n\t\r{}()\[\]"`'\?.]+/),
                 quoted,
             );
 
@@ -865,9 +868,9 @@ module.exports = grammar({
 
         // because this catches almost anything, we want to ensure it is
         // picked as the a last resort after everything else has failed. 
-        // so we give it a ridiculous precedence and place it at the
+        // so we give it a ridiculously low precedence and place it at the
         // very end
-        unquoted: $ => prec.left(-69, token(/[^\s\n\t\r{}()\[\]"`']+/)),
+        unquoted: $ => prec.left(-69, token(/[^\s\n\t\r{}()\[\]"`';]+/)),
 
         /// Comments
 

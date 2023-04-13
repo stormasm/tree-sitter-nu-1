@@ -4,7 +4,6 @@
 
 # issues
 1. unquoted strings
-_example_:
 ```nu
 # this should parse as a pipeline with two elements
 'nushell' | str contains n
@@ -16,4 +15,20 @@ n
 
 # quoting the string solves it though
 'nushell' | str contains 'n' # <- okay
+```
+
+2. blocks vs records
+since we cannot backtrack, it is difficult to tell apart blocks and
+records. so currently, blocks are not parsed as values
+```nu
+# this will not parse
+ls | each { $in + 4 }
+
+# however this parses
+ls | each {|it| $it + 4 }
+```
+
+3. cellpaths with numbers
+```nu
+ls | $in.4 # does not parse
 ```
