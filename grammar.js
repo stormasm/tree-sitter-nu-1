@@ -5,11 +5,6 @@ module.exports = grammar({
 
     extras: $ => [/\s/, $.comment],
 
-    // externals: $ => [
-    //     $._int_literal,
-    //     $._float_literal,
-    // ],
-
     conflicts: $ => [
         [$.val_record, $.val_closure]
     ],
