@@ -3,6 +3,7 @@
 #include <wctype.h>
 
 enum TokenType {
+  INTEGER,
   FLOAT,
 };
 
@@ -21,12 +22,13 @@ static bool is_numeric(int32_t c) { return c == '_' || iswdigit(c); }
 
 bool scan_float(TSLexer *lexer) {
   bool has_fraction = false, has_exponent = false;
-  lexer->result_symbol = FLOAT;
 
   advance(lexer);
 
   while (is_numeric(lexer->lookahead))
     advance(lexer);
+
+  lexer->mark_end(lexer);
 
   if (lexer->lookahead == '.') {
     has_fraction = true;
@@ -42,6 +44,8 @@ bool scan_float(TSLexer *lexer) {
       advance(lexer);
   }
 
+  lexer->mark_end(lexer);
+
   if (lexer->lookahead == 'e' || lexer->lookahead == 'E') {
     has_exponent = true;
     advance(lexer);
@@ -56,18 +60,26 @@ bool scan_float(TSLexer *lexer) {
 
     while (is_numeric(lexer->lookahead))
       advance(lexer);
+
+    lexer->mark_end(lexer);
+  }
+
+  if (has_exponent || has_fraction) {
+    lexer->result_symbol = FLOAT;
+  } else {
+    lexer->result_symbol = INTEGER;
   }
 
   lexer->mark_end(lexer);
-
-  return (has_fraction || has_exponent);
+  return true;
 }
 
 bool tree_sitter_nu_external_scanner_scan(void *payload, TSLexer *lexer,
                                           const bool *valid_symbols) {
-  if (valid_symbols[FLOAT] && iswdigit(lexer->lookahead)) {
+  if ((valid_symbols[INTEGER] || valid_symbols[FLOAT]) &&
+      iswdigit(lexer->lookahead)) {
     return scan_float(lexer);
+  } else {
+    return false;
   }
-
-  return false;
 }

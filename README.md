@@ -4,4 +4,5 @@
 
 # known issues
 
-1. unquoted strings - all strings will have to be quoted
+1. unquoted strings
+2. ranges with floats
