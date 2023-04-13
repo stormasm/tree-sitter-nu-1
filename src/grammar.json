@@ -320,7 +320,7 @@
       ]
     },
     "decl_use": {
-      "type": "PREC_RIGHT",
+      "type": "PREC_LEFT",
       "value": 1,
       "content": {
         "type": "SEQ",

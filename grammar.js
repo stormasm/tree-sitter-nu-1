@@ -89,7 +89,7 @@ module.exports = grammar({
             field("signature", choice($.parameter_parens, $.parameter_bracks)),
         ),
 
-        decl_use: $ => prec.right(1, seq(
+        decl_use: $ => prec.left(1, seq(
             optional(MODIFIER().visibility),
             KEYWORD().use,
             field("module", choice(
@@ -1105,16 +1105,6 @@ function NON_IDENT_CHARS() {
         '(', ')', '{', '}',
         '*', '^', '/', '=',
         '|', '!', '<', '>',
-    ]
-}
-
-function EOS_CHARS() {
-
-    return [
-        '\s', '\n', '\t', '\r',
-        '{', '}', '\\[', '\\]',
-        '(', ')', '|',
-        '"', '`', "'"
     ]
 }
 
