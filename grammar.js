@@ -64,7 +64,7 @@ module.exports = grammar({
             optional(MODIFIER().visibility),
             KEYWORD().alias,
             field("name", $._command_name),
-            PUNC().equal,
+            PUNC().eq,
             field("value", $.pipeline),
         ),
 
@@ -147,7 +147,7 @@ module.exports = grammar({
         ),
 
         param_value: $ => seq(
-            PUNC().equal,
+            PUNC().eq,
             field("param_value", $._expression),
         ),
 
@@ -346,7 +346,7 @@ module.exports = grammar({
 
         _assignment_pattern: $ => seq(
             field("name", $._variable_name),
-            PUNC().equal,
+            PUNC().eq,
             field("value", $.pipeline),
         ),
 
@@ -431,7 +431,7 @@ module.exports = grammar({
 
         assignment: $ => {
             const opr = [
-                OPR().assign,
+                PUNC().eq,
                 OPR().assign_add,
                 OPR().assign_sub,
                 OPR().assign_mul,
@@ -474,8 +474,10 @@ module.exports = grammar({
             $.command,
         )),
 
+        // the where command has a unique argument pattern that breaks the
+        // general command parsing, so we handle it separately
         where_command: $ => seq(
-            KEYWORD().where,
+            "where",
             field(
                 "predicate",
                 choice(...TABLE().map(([precedence, opr]) => prec.left(precedence, seq(
@@ -510,6 +512,8 @@ module.exports = grammar({
                     OPR().minus,
                     alias(
                         seq(
+                            // ensure the expression immediaely follows the
+                            // opening paren
                             token.immediate(DELIM().open_paren),
                             $.pipeline,
                             DELIM().close_paren
@@ -621,7 +625,7 @@ module.exports = grammar({
             ),
         ),
 
-        hex_digit: $ => token(/[0-9a-fA-F]+/), // add support for underscores
+        hex_digit: $ => token(/[0-9a-fA-F]+/),
 
         val_string: $ => choice(
             $._str_double_quotes,
@@ -633,6 +637,7 @@ module.exports = grammar({
             '"',
             repeat(choice(
                 $._escaped_str_content,
+                // double quoted strings accept escapes
                 $.escape_sequence,
             )),
             '"',
@@ -679,6 +684,7 @@ module.exports = grammar({
             repeat(choice(
                 field("expr", $.expr_interpolated),
                 $.inter_escape_sequence,
+                // double quoted strings accept escapes
                 $._escaped_interpolated_content,
             )),
             token.immediate('"'),
@@ -849,7 +855,7 @@ module.exports = grammar({
         ),
 
         flag_value: $ => seq(
-            PUNC().equal,
+            PUNC().eq,
             field("value", choice(
                 $.val_string,
                 $.cmd_identifier,
@@ -872,7 +878,7 @@ module.exports = grammar({
     },
 });
 
-// nushell keywords
+/// nushell keywords
 function KEYWORD() {
     return {
         def: "def",
@@ -914,8 +920,6 @@ function KEYWORD() {
 
         as: "as",
         in: "in",
-
-        where: "where",
     }
 }
 
@@ -951,7 +955,7 @@ function PUNC() {
         hash: "#",
         pipe: "|",
         rest: "...",
-        equal: "=",
+        eq: "=",
         colon: ":",
         comma: ",",
         caret: "^",
@@ -1026,7 +1030,6 @@ function OPR() {
         ends_with: "ends-with",
 
         // assignment
-        assign: "=",
         assign_add: "+=",
         assign_sub: "-=",
         assign_mul: "*=",
