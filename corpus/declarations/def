@@ -1,0 +1,447 @@
+===
+empty def
+===
+
+def empty [] {}
+
+---
+(nu_script
+  (decl_def
+    (cmd_identifier)
+    (parameter_bracks)
+    (block)))
+
+===
+empty def with quoted name
+===
+
+def "quoted name" [] {}
+
+---
+(nu_script
+  (decl_def
+    (val_string)
+    (parameter_bracks)
+    (block)))
+
+===
+empty def with newlines in params
+===
+
+def with-newlines [
+
+] {}
+
+---
+(nu_script
+  (decl_def
+    (cmd_identifier)
+    (parameter_bracks)
+    (block)))
+===
+empty def with visibility modifier
+===
+
+export def vis [] {}
+
+---
+(nu_script
+  (decl_def
+    (cmd_identifier)
+    (parameter_bracks)
+    (block)))
+
+
+===
+def with normal param
+===
+
+def test [param] {}
+
+---
+(nu_script
+  (decl_def
+    (cmd_identifier)
+    (parameter_bracks
+      (parameter
+        (identifier)))
+    (block)))
+
+===
+def with multiple normal params
+===
+
+def test [param1 param2 param3] {}
+
+---
+(nu_script
+  (decl_def
+    (cmd_identifier)
+    (parameter_bracks
+      (parameter
+        (identifier))
+      (parameter
+        (identifier))
+      (parameter
+        (identifier)))
+    (block)))
+
+===
+def with multiple comma-separated normal params
+===
+
+def test [param1, param2, param3] {}
+
+---
+(nu_script
+  (decl_def
+    (cmd_identifier)
+    (parameter_bracks
+      (parameter
+        (identifier))
+      (parameter
+        (identifier))
+      (parameter
+        (identifier)))
+    (block)))
+
+===
+def with multiple documented normal params
+===
+
+def test [
+    param1, # param 1 docs
+    param2, # param 1 docs
+    param3  # param 1 docs
+] {}
+
+---
+(nu_script
+  (decl_def
+    (cmd_identifier)
+    (parameter_bracks
+      (parameter
+        (identifier))
+      (comment)
+      (parameter
+        (identifier))
+      (comment)
+      (parameter
+        (identifier))
+      (comment))
+    (block)))
+
+===
+def with rest parameter
+===
+
+def-env rest [...params] {}
+
+---
+(nu_script
+  (decl_def
+    (cmd_identifier)
+    (parameter_bracks
+      (parameter
+        (param_rest)))
+    (block)))
+
+===
+def with optional parameter
+===
+
+def test [opt?] {}
+
+---
+(nu_script
+  (decl_def
+   (cmd_identifier) 
+    (parameter_bracks
+      (parameter
+        (param_opt
+          (identifier))))
+    (block)))
+
+===
+def with short flag parameter
+===
+
+def test [-f] {}
+
+---
+(nu_script
+  (decl_def
+   (cmd_identifier) 
+    (parameter_bracks
+      (parameter
+        (param_short_flag)))
+    (block)))
+
+===
+def with long flag parameter
+===
+
+def test [--flag] {}
+
+---
+(nu_script
+  (decl_def
+   (cmd_identifier) 
+    (parameter_bracks
+      (parameter))
+    (block)))
+
+===
+def with long flag parameter and capsule
+===
+
+def test [--flag(-f)] {}
+
+---
+(nu_script
+  (decl_def
+   (cmd_identifier) 
+    (parameter_bracks
+      (parameter
+        (flag_capsule
+           (param_short_flag)))) 
+    (block)))
+
+
+===
+def param with simple type
+===
+
+def test [
+   param: int
+] {}
+
+---
+(nu_script
+  (decl_def
+    (cmd_identifier)
+    (parameter_bracks
+      (parameter
+        (identifier)
+        (param_type)))
+    (block)))
+
+===
+def param with composite type
+===
+
+def test [
+   param: list<record>
+] {}
+
+---
+(nu_script
+  (decl_def
+    (cmd_identifier)
+    (parameter_bracks
+      (parameter
+        (identifier)
+        (param_type
+          (list_type))))
+    (block)))
+
+===
+def param with unqouted custom completion
+===
+
+def test [
+   param: list@command
+] {}
+
+---
+(nu_script
+  (decl_def
+    (cmd_identifier)
+    (parameter_bracks
+      (parameter
+        (identifier)
+        (param_type
+          (list_type)
+          (param_cmd
+            (cmd_identifier)))))
+    (block)))
+
+===
+def param with qouted custom completion
+===
+
+def test [
+   param: string@"completion command"
+] {}
+
+---
+(nu_script
+  (decl_def
+    (cmd_identifier)
+    (parameter_bracks
+      (parameter
+        (identifier)
+        (param_type
+          (param_cmd
+            (val_string)))))
+    (block)))
+
+===
+def param with default value
+===
+
+def test [
+   param = 0x[68 9d 6a]
+] {}
+
+---
+(nu_script
+  (decl_def
+    (cmd_identifier)
+    (parameter_bracks
+      (parameter
+        (identifier)
+          (param_value
+          (val_binary
+            (hex_digit)
+            (hex_digit)
+            (hex_digit)))))
+    (block)))
+
+===
+def param with complex default value
+===
+
+def test [
+   param = (random bool)
+] {}
+
+---
+(nu_script
+  (decl_def
+    (cmd_identifier)
+    (parameter_bracks
+      (parameter
+        (identifier)
+          (param_value
+            (expr_parenthesized
+              (pipeline
+                (pipe_element
+                  (command
+                    (cmd_head_sub
+                      (cmd_identifier)
+                      (cmd_identifier)))))))))
+    (block)))
+
+===
+def param with type then default value
+===
+
+def test [
+    param: bool = true
+] {}
+
+---
+(nu_script
+      (decl_def
+        (cmd_identifier)
+        (parameter_bracks
+          (parameter
+            (identifier)
+            (param_type)
+            (param_value
+              (val_bool))))
+        (block)))
+
+===
+def param with default value the type
+===
+
+def test [
+    param = [[a b c]; ["one" "two" "three"]] : table
+] {}
+
+---
+(nu_script
+  (decl_def
+    (cmd_identifier)
+    (parameter_bracks
+      (parameter
+        (identifier)
+        (param_value
+          (val_table
+            (val_list
+              (val_string)
+              (val_string)
+              (val_string))
+            (val_list
+              (val_string)
+              (val_string)
+              (val_string))))
+        (param_type)))
+    (block)))
+
+===
+def parameters with parens instead of brackets
+===
+
+def "test parens" () {}
+
+---
+(nu_script
+  (decl_def
+    (val_string)
+    (parameter_parens)
+    (block)))
+===
+def parameters smoke test
+===
+def "smoke test" [
+   param,
+   num: int,
+   -5,
+   list = []
+   --run-cmd(-r): string@"completion" # docs
+   ...args,
+   optional?: list<float>
+   # more docs
+   composite: binary = 0b[01101101 01101001 01101011 01100101]
+] {}
+
+---
+(nu_script
+  (decl_def
+    (val_string)
+    (parameter_bracks
+      (parameter
+        (identifier))
+      (parameter
+        (identifier)
+        (param_type))
+      (parameter
+        (param_short_flag))
+      (parameter
+        (identifier)
+        (param_value
+          (val_list)))
+      (parameter
+        (flag_capsule
+          (param_short_flag))
+        (param_type
+          (param_cmd
+            (val_string))))
+      (comment)
+      (parameter
+        (param_rest))
+      (ERROR)
+      (comment)
+      (parameter
+        (identifier)
+        (param_type)
+        (param_value
+          (val_binary
+            (hex_digit)
+            (hex_digit)
+            (hex_digit)
+            (hex_digit)))))
+    (block)))

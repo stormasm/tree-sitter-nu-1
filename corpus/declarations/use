@@ -1,0 +1,60 @@
+===
+use with single path item
+===
+
+use file.nu
+
+---
+(nu_script
+      (decl_use
+        (unquoted)))
+===
+use with visibility modifier
+===
+
+export use file.nu
+
+---
+(nu_script
+      (decl_use
+        (unquoted)))
+
+
+===
+use with wild-card scope pattern
+===
+
+use my_dir/file.nu *
+
+---
+(nu_script
+  (decl_use
+    (unquoted)
+    (wild_card)))
+
+===
+use with single item
+===
+
+use path/to/my-file.nu command
+
+---
+(nu_script
+  (decl_use
+    (unquoted)
+    (cmd_identifier)))
+
+===
+use with list scope pattern
+===
+
+use file.nu [cmd1 cmd2 cmd3]
+
+---
+(nu_script
+  (decl_use
+    (unquoted)
+    (command_list
+      (cmd_identifier)
+      (cmd_identifier)
+      (cmd_identifier))))
