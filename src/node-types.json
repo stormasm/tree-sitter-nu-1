@@ -773,6 +773,10 @@
       "required": true,
       "types": [
         {
+          "type": "block",
+          "named": true
+        },
+        {
           "type": "expr_binary",
           "named": true
         },
@@ -1278,6 +1282,10 @@
         "multiple": false,
         "required": false,
         "types": [
+          {
+            "type": "block",
+            "named": true
+          },
           {
             "type": "val_closure",
             "named": true

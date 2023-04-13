@@ -1284,7 +1284,7 @@
           },
           {
             "type": "SYMBOL",
-            "name": "val_closure"
+            "name": "_blosure"
           },
           {
             "type": "CHOICE",
@@ -1512,7 +1512,7 @@
                   "name": "catch_branch",
                   "content": {
                     "type": "SYMBOL",
-                    "name": "val_closure"
+                    "name": "_blosure"
                   }
                 }
               ]
@@ -2041,6 +2041,19 @@
         {
           "type": "STRING",
           "value": "}"
+        }
+      ]
+    },
+    "_blosure": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "block"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "val_closure"
         }
       ]
     },
