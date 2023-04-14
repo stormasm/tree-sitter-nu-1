@@ -37,14 +37,9 @@ module.exports = grammar({
         ),
 
         _variable_name: $ => choice(
-            field("var_name", $._var_name),
+            field("var_name", $.identifier),
             field("dollar_name", $.val_variable),
         ),
-
-        _var_name: $ => token(seq(
-            noneOf(...NON_IDENT_CHARS(), '#'),
-            repeat(noneOf(...NON_IDENT_CHARS()))
-        )),
 
         /// Top Level Items
 
@@ -91,21 +86,21 @@ module.exports = grammar({
                 $.val_string,
                 $.unquoted,
             )),
-            optional($._scope_pattern),
+            optional(field("import_pattern", $.scope_pattern)),
         )),
 
         /// Parameters
 
         parameter_parens: $ => seq(
-            DELIM().open_paren,
+            BRACK().open_paren,
             repeat($.parameter),
-            DELIM().close_paren,
+            BRACK().close_paren,
         ),
 
         parameter_bracks: $ => seq(
-            DELIM().open_brack,
+            BRACK().open_brack,
             repeat($.parameter),
-            DELIM().close_brack,
+            BRACK().close_brack,
         ),
 
         parameter_pipes: $ => seq(
@@ -130,12 +125,15 @@ module.exports = grammar({
             field("param_optional", $.param_opt),
             field("param_name", $.identifier),
             field("param_short_flag", $.param_short_flag),
-            $._param_long_flag,
+            field("param_long_flag", seq(
+                $.param_long_flag,
+                field("flag_capsule", optional($.flag_capsule)),
+            )),
         ),
 
         param_type: $ => seq(
             PUNC().colon,
-            field("param_type", choice(
+            field("type", choice(
                 $.list_type,
                 FLAT_TYPES(),
             )),
@@ -150,44 +148,41 @@ module.exports = grammar({
         list_type: $ => prec(1, seq(
             "list",
             optional(seq(
-                token.immediate(DELIM().open_angle),
+                token.immediate(BRACK().open_angle),
                 field("inner", token(FLAT_TYPES())),
-                DELIM().close_angle
+                BRACK().close_angle
             )),
         )),
 
         param_cmd: $ => seq(
             PUNC().at,
-            $._command_name,
+            field("name", $._command_name),
         ),
 
         param_rest: $ => seq(
             PUNC().rest,
-            $._var_name,
+            field("name", $.identifier),
         ),
 
         param_opt: $ => seq(
-            $.identifier,
+            field("name", $.identifier),
             token.immediate(PUNC().question),
         ),
 
-        _param_long_flag: $ => seq(
-            field("param_long_flag", seq(
-                "--",
-                token.immediate(/[_\p{XID_Start}][_\-\p{XID_Continue}]*/),
-            )),
-            field("flag_capsule", optional($.flag_capsule)),
+        param_long_flag: $ => seq(
+            "--",
+            field("name", token.immediate(/[_\p{XID_Start}][_\-\p{XID_Continue}]+/)),
         ),
 
         flag_capsule: $ => seq(
-            DELIM().open_paren,
+            token.immediate(BRACK().open_paren),
             $.param_short_flag,
-            DELIM().close_paren,
+            BRACK().close_paren,
         ),
 
         param_short_flag: $ => seq(
             "-",
-            token.immediate(/[a-zA-Z0-9]/),
+            field("name", token.immediate(/[a-zA-Z0-9]/)),
         ),
 
         /// Statements
@@ -242,21 +237,21 @@ module.exports = grammar({
 
         ctrl_for: $ => seq(
             KEYWORD().for,
-            $._variable_name,
+            field("looping_var", $._variable_name),
             KEYWORD().in,
-            $._expression,
-            $.block,
+            field("iterable", $._expression),
+            field("body", $.block),
         ),
 
         ctrl_loop: $ => seq(
             KEYWORD().loop,
-            $.block,
+            field("body", $.block),
         ),
 
         ctrl_error: $ => seq(
             KEYWORD().error,
             MODIFIER().error_make,
-            $.val_record,
+            field("error_record", $.val_record),
         ),
 
         ctrl_while: $ => seq(
@@ -289,10 +284,10 @@ module.exports = grammar({
         ctrl_match: $ => seq(
             KEYWORD().match,
             field("scrutinee", $._expression),
-            DELIM().open_brace,
+            BRACK().open_brace,
             repeat($.match_arm),
             optional($.default_arm),
-            DELIM().close_brace,
+            BRACK().close_brace,
         ),
 
         match_arm: $ => seq(
@@ -367,7 +362,7 @@ module.exports = grammar({
         hide_mod: $ => prec.left(-1, seq(
             KEYWORD().hide,
             field("module", $._command_name),
-            optional($._scope_pattern),
+            optional($.scope_pattern),
         )),
 
         hide_env: $ => seq(
@@ -409,7 +404,7 @@ module.exports = grammar({
             )),
         ),
 
-        _scope_pattern: $ => choice(
+        scope_pattern: $ => choice(
             field("wildcard", $.wild_card),
             field("command", $._command_name),
             field("command_list", $.command_list),
@@ -418,9 +413,12 @@ module.exports = grammar({
         wild_card: $ => token("*"),
 
         command_list: $ => seq(
-            DELIM().open_brack,
-            repeat(field("command", $._command_name)),
-            DELIM().close_brack,
+            BRACK().open_brack,
+            repeat(seq(
+                field("cmd", $._command_name),
+                optional(PUNC().comma),
+            )),
+            BRACK().close_brack,
         ),
 
         /// Assignment Statement
@@ -445,12 +443,12 @@ module.exports = grammar({
         /// Block
 
         block: $ => seq(
-            DELIM().open_brace,
+            BRACK().open_brace,
             repeat(choice(
                 $._declaration,
                 $._statement,
             )),
-            DELIM().close_brace,
+            BRACK().close_brace,
         ),
 
         _blosure: $ => choice(
@@ -512,22 +510,23 @@ module.exports = grammar({
         /// Composite Expressions
 
         expr_unary: $ => {
-            const bool_or_expr = choice(
+            const after_not = choice(
                 $.val_bool,
                 $.expr_parenthesized,
+                $.val_variable,
             );
 
             return choice(
-                seq(OPR().not, bool_or_expr),
+                seq(OPR().not, after_not),
                 seq(
                     OPR().minus,
                     alias(
                         seq(
                             // ensure the expression immediaely follows the
                             // opening paren
-                            token.immediate(DELIM().open_paren),
+                            token.immediate(BRACK().open_paren),
                             $.pipeline,
-                            DELIM().close_paren
+                            BRACK().close_paren
                         ),
                         $.expr_parenthesized
                     )
@@ -536,7 +535,7 @@ module.exports = grammar({
         },
 
         expr_binary: $ => choice(
-            ...TABLE().map(([precedence, opr]) => prec.left(precedence, seq(
+            ...TABLE().map(([precedence, opr]) => prec.right(precedence, seq(
                 field("lhs", $._expression),
                 field("opr", opr),
                 field("rhs", $._expression),
@@ -544,9 +543,9 @@ module.exports = grammar({
         ),
 
         expr_parenthesized: $ => seq(
-            DELIM().open_paren,
+            BRACK().open_paren,
             optional($.pipeline),
-            DELIM().close_paren,
+            BRACK().close_paren,
         ),
 
         val_range: $ => {
@@ -593,7 +592,8 @@ module.exports = grammar({
         /// Literals
 
         val_variable: $ => seq(
-            token(/\$[_\p{XID_Start}][_\p{XID_Continue}]*/),
+            PUNC().dollar,
+            field("name", $.identifier),
             optional($.cell_path),
         ),
 
@@ -624,9 +624,10 @@ module.exports = grammar({
         ),
 
         val_binary: $ => seq(
-            choice("0b[", "0o[", "0x["),
-            repeat(seq($.hex_digit, optional(PUNC().comma))),
-            DELIM().close_brack,
+            choice("0b", "0o", "0x"),
+            token.immediate(BRACK().open_brack),
+            repeat(field("digit", seq($.hex_digit, optional(PUNC().comma)))),
+            BRACK().close_brack,
         ),
 
         val_date: $ => token(
@@ -677,15 +678,15 @@ module.exports = grammar({
             $._inter_double_quotes,
         ),
 
-        _escaped_interpolated_content: $ => token.immediate(prec(1, /[^"\\(]/)),
+        escaped_interpolated_content: $ => token.immediate(prec(1, /[^"\\(]/)),
 
-        _unescaped_interpolated_content: $ => token.immediate(prec(1, /[^'(]/)),
+        unescaped_interpolated_content: $ => token.immediate(prec(1, /[^'(]/)),
 
         _inter_single_quotes: $ => seq(
             "$'",
             repeat(choice(
                 field("expr", $.expr_interpolated),
-                $._unescaped_interpolated_content,
+                $.unescaped_interpolated_content,
             )),
             token.immediate("'"),
         ),
@@ -696,7 +697,7 @@ module.exports = grammar({
                 field("expr", $.expr_interpolated),
                 $.inter_escape_sequence,
                 // double quoted strings accept escapes
-                $._escaped_interpolated_content,
+                $.escaped_interpolated_content,
             )),
             token.immediate('"'),
         ),
@@ -715,15 +716,15 @@ module.exports = grammar({
         ),
 
         expr_interpolated: $ => seq(
-            DELIM().open_paren,
+            BRACK().open_paren,
             repeat($._statement),
-            DELIM().close_paren,
+            BRACK().close_paren,
         ),
 
         /// Collections
 
         val_list: $ => seq(
-            DELIM().open_brack,
+            BRACK().open_brack,
             repeat(field(
                 "item",
                 seq(
@@ -731,39 +732,42 @@ module.exports = grammar({
                     optional(PUNC().comma)
                 ),
             )),
-            DELIM().close_brack,
+            BRACK().close_brack,
             optional($.cell_path),
         ),
 
         val_record: $ => seq(
-            DELIM().open_brace,
+            BRACK().open_brace,
             repeat(field("entry", $.record_entry)),
-            DELIM().close_brace,
+            BRACK().close_brace,
             optional($.cell_path),
         ),
 
         record_entry: $ => seq(
             field("key", choice($.identifier, $.val_string)),
             PUNC().colon,
-            field("value", $._expression),
+            field("value", choice(
+                prec.right(10, $._expression),
+                alias($.unquoted, $.val_string)
+            )),
             optional(PUNC().comma),
         ),
 
         val_table: $ => seq(
-            DELIM().open_brack,
+            BRACK().open_brack,
             field("head", seq($.val_list, PUNC().semicolon)),
             repeat(field("row", $.val_list)),
-            DELIM().close_brack,
+            BRACK().close_brack,
             optional($.cell_path),
         ),
 
         val_closure: $ => seq(
-            DELIM().open_brace,
+            BRACK().open_brace,
             field("parameters", $.parameter_pipes),
             repeat(choice(
                 $._statement
             )),
-            DELIM().close_brace,
+            BRACK().close_brace,
         ),
 
         /// CellPaths
@@ -821,12 +825,13 @@ module.exports = grammar({
         )),
 
         _cmd_arg: $ => choice(
-            field("arg", prec.right(10, $._value)),
+            field("redir", prec.right(10, $.redirection)),
+            field("arg", prec.right(9, $._value)),
+            field("flag", prec.right(8, $._flag)),
+            field("arg", prec.right(7, $.expr_parenthesized)),
+            field("arg", prec.right(6, $.val_range)),
             // lowest precedence to make it a last resort
             field("arg_str", alias($.unquoted, $.val_string)),
-            field("arg", $.expr_parenthesized),
-            field("flag", $._flag),
-            field("redir", $.redirection),
         ),
 
         redirection: $ => choice(
@@ -842,24 +847,17 @@ module.exports = grammar({
 
         _flag: $ => choice(
             $.short_flag,
-            $._long_flag,
+            $.long_flag,
         ),
 
-        short_flag: $ => prec.right(5, token(seq(
+        short_flag: $ => prec.right(5, seq(
             "-",
-            token.immediate(/[_\p{XID_Continue}]+/),
-        ))),
-
-        _long_flag: $ => choice(
-            field("flag_separator", $.flag_separator),
-            field("long_flag", seq($.long_flag, optional($.flag_value))),
-        ),
-
-        flag_separator: $ => token("--"),
+            field("name", token.immediate(/[a-zA-Z0-9]+/)),
+        )),
 
         long_flag: $ => seq(
             "--",
-            token.immediate(/[_\p{XID_Continue}]+/),
+            optional(token.immediate(/[_\p{XID_Continue}]+/)),
         ),
 
         flag_value: $ => seq(
@@ -977,7 +975,7 @@ function PUNC() {
 }
 
 // delimiters
-function DELIM() {
+function BRACK() {
     return {
         open_angle: "<",
         close_angle: ">",
@@ -1173,22 +1171,4 @@ function FILESIZE_UNIT() {
         "eib", "eiB", "eIB", "eIb", "Eib", "EIb", "EIB",
         "zib", "ziB", "zIB", "zIb", "Zib", "ZIb", "ZIB",
     ])
-}
-
-/// from `nu-parser::parser::is_identifier_byte()`
-function NON_IDENT_CHARS() {
-    return [
-        '"', "'", '`', '&',
-        '.', '\\[', '\\]',
-        '(', ')', '{', '}',
-        '*', '^', '/', '=',
-        '|', '!', '<', '>',
-    ]
-}
-
-
-// stolen from tree-sitter-bash
-function noneOf(...chars) {
-    const negatedString = chars.map(c => c === '\\' ? '\\\\' : c).join('');
-    return new RegExp('[^' + negatedString + ']');
 }
