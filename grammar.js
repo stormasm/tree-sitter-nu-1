@@ -291,7 +291,7 @@ module.exports = grammar({
         ),
 
         match_arm: $ => seq(
-            field("pattern", $._expression),
+            field("pattern", $.match_pattern),
             PUNC().fat_arrow,
             field("expression", $._expression),
             optional(PUNC().comma),
@@ -302,6 +302,14 @@ module.exports = grammar({
             PUNC().fat_arrow,
             field("expression", $._expression),
             optional(PUNC().comma),
+        ),
+
+        match_pattern: $ => seq(
+            $._expression,
+            repeat(seq(
+                PUNC().pipe,
+                $._expression,
+            )),
         ),
 
         ctrl_try: $ => seq(

@@ -1444,7 +1444,7 @@
           "name": "pattern",
           "content": {
             "type": "SYMBOL",
-            "name": "_expression"
+            "name": "match_pattern"
           }
         },
         {
@@ -1507,6 +1507,31 @@
               "type": "BLANK"
             }
           ]
+        }
+      ]
+    },
+    "match_pattern": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_expression"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "STRING",
+                "value": "|"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "_expression"
+              }
+            ]
+          }
         }
       ]
     },
