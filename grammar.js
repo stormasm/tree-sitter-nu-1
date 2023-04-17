@@ -303,14 +303,26 @@ module.exports = grammar({
             field("expression", $._expression),
             optional(PUNC().comma),
         ),
+        match_pattern: $ => choice(
+            $._match_or_pattern,
+            $._match_list_destructure_pattern,
+        ),
 
-        match_pattern: $ => seq(
+        _match_or_pattern: $ => seq(
             $._expression,
             repeat(seq(
                 PUNC().pipe,
                 $._expression,
             )),
         ),
+
+        _match_list_destructure_pattern: $ => prec(1, seq(
+            BRACK().open_brack,
+            field("head", seq(PUNC().dollar, $.identifier)),
+            optional(PUNC().comma),
+            field("tail", seq(PUNC().dot, PUNC().dot, PUNC().dollar, $.identifier)),
+            BRACK().close_brack,
+        )),
 
         ctrl_try: $ => seq(
             KEYWORD().try,

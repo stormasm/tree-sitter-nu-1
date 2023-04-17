@@ -2304,10 +2304,43 @@
   {
     "type": "match_pattern",
     "named": true,
-    "fields": {},
+    "fields": {
+      "head": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "$",
+            "named": false
+          },
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
+      "tail": {
+        "multiple": true,
+        "required": false,
+        "types": [
+          {
+            "type": "$",
+            "named": false
+          },
+          {
+            "type": ".",
+            "named": false
+          },
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    },
     "children": {
       "multiple": true,
-      "required": true,
+      "required": false,
       "types": [
         {
           "type": "expr_binary",
